@@ -20,18 +20,18 @@ This project helped me gain hands-on experience with:
 1. **Modern AI APIs**
    - Integration with multiple AI providers (Google, OpenAI, Groq)
    - Handling API authentication and rate limiting
-   - Managing asynchronous API responses
+   - Managing asynchronous API responses for parallel processing
 
 2. **Streamlit Framework**
    - Building interactive web applications
    - Real-time updates and state management
    - Custom styling and layout design
-   - Component containerization
+   - Component containerization (using `st.container`)
 
 3. **Python Development**
    - Environment management with python-dotenv
    - API client libraries (google-generativeai, openai, groq)
-   - Async/await patterns
+   - Async/await patterns (using `asyncio`)
    - Error handling and logging
 
 4. **UI/UX Design**
@@ -43,20 +43,20 @@ This project helped me gain hands-on experience with:
 ## Technical Implementation
 
 ### Key Features
-- Three-column layout for simultaneous model interaction
-- Independent scrollable chat containers
-- Real-time message updates
-- Model selection dropdowns
-- Secure API key management
-- Responsive design
+- **Parallel Processing**: Queries all three AI models simultaneously using `asyncio`, significantly reducing wait time.
+- **Three-column Layout**: Independent scrollable chat containers for each model.
+- **Efficient Caching**: Caches model lists to avoid unnecessary API calls.
+- **Real-time Updates**: Smooth user experience with instant feedback.
+- **Secure API Key Management**: Uses `.env` for security.
 
 ### Libraries Used
 - `streamlit`: Web application framework
 - `google-generativeai`: Google's Gemini API client
-- `openai`: OpenAI API client
-- `groq`: Groq API client
+- `openai`: OpenAI API client (Async)
+- `groq`: Groq API client (Async)
 - `python-dotenv`: Environment variable management
 - `asyncio`: Asynchronous I/O handling
+- `watchdog`: File system monitoring (for development)
 
 ## Getting Started
 
@@ -90,23 +90,6 @@ You'll need API keys from:
 - [Groq Console](https://console.groq.com/keys)
 
 See `.env.example` for required environment variables.
-
-## Lessons Learned
-
-1. **API Integration Challenges**
-   - Managing rate limits across providers
-   - Handling different response formats
-   - Implementing proper error handling
-
-2. **UI/UX Considerations**
-   - Importance of responsive design
-   - Managing state across multiple chat windows
-   - Providing clear visual feedback
-
-3. **Development Best Practices**
-   - Secure credential management
-   - Code organization and modularity
-   - Documentation importance
 
 ## Future Improvements
 
