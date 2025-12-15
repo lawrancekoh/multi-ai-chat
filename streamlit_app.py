@@ -46,8 +46,8 @@ if "messages" not in st.session_state:
 if "column_configs" not in st.session_state:
     st.session_state.column_configs = {
         "col1": {"provider": "Gemini", "model": None},
-        "col2": {"provider": "OpenAI", "model": None},
-        "col3": {"provider": "OpenAI", "model": None} # Defaulting 3rd to OpenAI instead of Groq
+        "col2": {"provider": "Gemini", "model": None},
+        "col3": {"provider": "Gemini", "model": None}
     }
 
 # --- Helper to get models for a provider ---

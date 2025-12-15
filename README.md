@@ -9,7 +9,6 @@ A Streamlit-based application that demonstrates concurrent interaction with mult
 This application allows users to simultaneously interact with three different AI models:
 - Google's Gemini
 - OpenAI's GPT models
-- Groq's LLM models
 
 Each model runs in its own column with message history, enabling real-time comparison of responses across different AI providers.
 
@@ -18,7 +17,7 @@ Each model runs in its own column with message history, enabling real-time compa
 This project helped me gain hands-on experience with:
 
 1. **Modern AI APIs**
-   - Integration with multiple AI providers (Google, OpenAI, Groq)
+   - Integration with multiple AI providers (Google, OpenAI)
    - Handling API authentication and rate limiting
    - Managing asynchronous API responses for parallel processing
 
@@ -30,7 +29,7 @@ This project helped me gain hands-on experience with:
 
 3. **Python Development**
 
-   - API client libraries (google-generativeai, openai, groq)
+   - API client libraries (google-generativeai, openai)
    - Async/await patterns (using `asyncio`)
    - Error handling and logging
 
@@ -43,7 +42,7 @@ This project helped me gain hands-on experience with:
 ## Technical Implementation
 
 ### Key Features
-- **Parallel Processing**: Queries all three AI models simultaneously using `asyncio`, significantly reducing wait time.
+- **Parallel Processing**: Queries all AI models simultaneously using `asyncio`, significantly reducing wait time.
 - **Three-column Layout**: Independent scrollable chat containers for each model.
 - **Efficient Caching**: Caches model lists to avoid unnecessary API calls.
 - **Real-time Updates**: Smooth user experience with instant feedback.
@@ -52,8 +51,6 @@ This project helped me gain hands-on experience with:
 ### Libraries Used
 - `streamlit`: Web application framework
 - `google-generativeai`: Google's Gemini API client
-- `openai`: OpenAI API client (Async)
-- `groq`: Groq API client (Async)
 
 - `asyncio`: Asynchronous I/O handling
 - `watchdog`: File system monitoring (for development)
@@ -80,12 +77,15 @@ This project helped me gain hands-on experience with:
 
 The application uses a **Bring Your Own Key (BYOK)** approach.
 
-1. Launch the application.
-2. In the sidebar, enter your API keys for:
-   - [Google AI Studio](https://makersuite.google.com/app/apikey)
-   - [OpenAI Platform](https://platform.openai.com/api-keys)
-   - [Groq Console](https://console.groq.com/keys)
-3. Your keys will be saved locally in `config.json` for future sessions.
+1. Create a `config.json` file in the root directory:
+   ```json
+   {
+       "gemini_key": "YOUR_GEMINI_API_KEY",
+       "openai_key": "YOUR_OPENAI_API_KEY",
+       "custom_providers": []
+   }
+   ```
+2. Launch the application.
 
 ## Future Improvements
 
