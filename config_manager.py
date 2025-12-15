@@ -1,9 +1,7 @@
 import json
 import os
 from typing import List, Dict, Any
-from dotenv import load_dotenv
 
-load_dotenv()
 
 CONFIG_FILE = "config.json"
 
@@ -14,14 +12,9 @@ DEFAULT_CONFIG = {
 }
 
 def load_config() -> Dict[str, Any]:
-    """Loads the configuration from config.json. Returns default or env vars if not found."""
+    """Loads the configuration from config.json. Returns default if not found."""
     if not os.path.exists(CONFIG_FILE):
-        # Fallback to env vars for backward compatibility/migration
-        return {
-            "gemini_key": os.getenv("GOOGLE_API_KEY", ""),
-            "openai_key": os.getenv("OPENAI_API_KEY", ""),
-            "custom_providers": []
-        }
+        return DEFAULT_CONFIG.copy()
 
     try:
         with open(CONFIG_FILE, "r") as f:

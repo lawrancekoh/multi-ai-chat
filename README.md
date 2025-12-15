@@ -29,7 +29,7 @@ This project helped me gain hands-on experience with:
    - Component containerization (using `st.container`)
 
 3. **Python Development**
-   - Environment management with python-dotenv
+
    - API client libraries (google-generativeai, openai, groq)
    - Async/await patterns (using `asyncio`)
    - Error handling and logging
@@ -47,14 +47,14 @@ This project helped me gain hands-on experience with:
 - **Three-column Layout**: Independent scrollable chat containers for each model.
 - **Efficient Caching**: Caches model lists to avoid unnecessary API calls.
 - **Real-time Updates**: Smooth user experience with instant feedback.
-- **Secure API Key Management**: Uses `.env` for security.
+- **Secure API Key Management**: Configuration stored locally in `config.json`.
 
 ### Libraries Used
 - `streamlit`: Web application framework
 - `google-generativeai`: Google's Gemini API client
 - `openai`: OpenAI API client (Async)
 - `groq`: Groq API client (Async)
-- `python-dotenv`: Environment variable management
+
 - `asyncio`: Asynchronous I/O handling
 - `watchdog`: File system monitoring (for development)
 
@@ -71,25 +71,21 @@ This project helped me gain hands-on experience with:
    pip install -r requirements.txt
    ```
 
-3. Set up environment variables:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your API keys
-   ```
-
-4. Run the application:
+3. Run the application:
    ```bash
    streamlit run streamlit_app.py
    ```
 
-## Environment Configuration
+## Configuration
 
-You'll need API keys from:
-- [Google AI Studio](https://makersuite.google.com/app/apikey)
-- [OpenAI Platform](https://platform.openai.com/api-keys)
-- [Groq Console](https://console.groq.com/keys)
+The application uses a **Bring Your Own Key (BYOK)** approach.
 
-See `.env.example` for required environment variables.
+1. Launch the application.
+2. In the sidebar, enter your API keys for:
+   - [Google AI Studio](https://makersuite.google.com/app/apikey)
+   - [OpenAI Platform](https://platform.openai.com/api-keys)
+   - [Groq Console](https://console.groq.com/keys)
+3. Your keys will be saved locally in `config.json` for future sessions.
 
 ## Future Improvements
 
