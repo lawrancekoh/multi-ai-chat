@@ -9,10 +9,6 @@ st.set_page_config(layout="wide", page_title="Triple AI Chat")
 # --- Custom CSS ---
 st.markdown("""
     <style>
-        .stApp {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
         .stTextInput > div > div > input {
             background-color: #f0f2f6;
             color: black;
