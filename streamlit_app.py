@@ -1,119 +1,12 @@
 import streamlit as st
 import asyncio
-import os
-from dotenv import load_dotenv
-import google.generativeai as genai
-from openai import AsyncOpenAI
-from groq import AsyncGroq
+from config_manager import load_config, get_provider_config
+from model_utils import get_available_models, get_response
 
-# Set up the Streamlit page (must be first Streamlit command)
+# Must be the first Streamlit command
 st.set_page_config(layout="wide", page_title="Triple AI Chat")
 
-# Load environment variables
-load_dotenv()
-
-# Configure Google API client
-# OpenAI and Groq clients will be initialized asynchronously where needed or here if they are thread-safe/async-compatible globally.
-# Typically AsyncOpenAI/AsyncGroq are lightweight to instantiate per request or globally.
-genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
-
-# Cached function to get available Gemini models
-@st.cache_data
-def get_gemini_models():
-    try:
-        models = genai.list_models()
-        return [m.name for m in models if 'gemini' in m.name]
-    except Exception as e:
-        # Don't show error on UI during model fetch to avoid clutter, just log or return fallback
-        print(f"Error fetching Gemini models: {str(e)}")
-        return ['gemini-pro']  # Fallback
-
-# Cached function to get available OpenAI models
-@st.cache_data
-def get_openai_models():
-    try:
-        # We need a synchronous client for this list call.
-        from openai import OpenAI
-        client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-        models = client.models.list()
-        return [m.id for m in models if m.id.startswith(('gpt-3.5', 'gpt-4'))]
-    except Exception as e:
-        print(f"Error fetching OpenAI models: {str(e)}")
-        return ['gpt-3.5-turbo']  # Fallback
-
-# Cached function to get available Groq models
-@st.cache_data
-def get_groq_models():
-    try:
-        # List of currently available models from Groq documentation
-        available_models = [
-            'mixtral-8x7b-32768',
-            'llama2-70b-32768',
-            'gemma-7b-it',
-            'llama2-13b-32768',
-            'llama2-7b-32768',
-            'llama3-8b-8192',
-            'llama3-70b-8192'
-        ]
-        return available_models
-    except Exception as e:
-        print(f"Error fetching Groq models: {str(e)}")
-        return ['mixtral-8x7b-32768']  # Fallback
-
-# Async functions to get responses
-async def get_gemini_response(model_name, prompt):
-    try:
-        model = genai.GenerativeModel(model_name)
-        response = await model.generate_content_async(prompt)
-        return response.text
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-async def get_openai_response(model_name, prompt):
-    try:
-        client = AsyncOpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-        response = await client.chat.completions.create(
-            model=model_name,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-async def get_groq_response(model_name, prompt):
-    try:
-        client = AsyncGroq(api_key=os.getenv('GROQ_API_KEY'))
-        response = await client.chat.completions.create(
-            model=model_name,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-async def get_all_responses(gemini_model, openai_model, groq_model, prompt):
-    return await asyncio.gather(
-        get_gemini_response(gemini_model, prompt),
-        get_openai_response(openai_model, prompt),
-        get_groq_response(groq_model, prompt)
-    )
-
-# Get available models
-GEMINI_MODELS = get_gemini_models()
-OPENAI_MODELS = get_openai_models()
-GROQ_MODELS = get_groq_models()
-
-# Initialize session state
-if "messages" not in st.session_state:
-    st.session_state.messages = {
-        "gemini": [],
-        "openai": [],
-        "groq": []
-    }
-if "current_input" not in st.session_state:
-    st.session_state.current_input = None
-
-# Custom CSS
+# --- Custom CSS ---
 st.markdown("""
     <style>
         .stApp {
@@ -129,118 +22,185 @@ st.markdown("""
 
 st.title("Triple AI Chat Interface")
 
-# Create three columns for the chat interfaces
+# --- Configuration & Setup ---
+config = load_config()
+
+# Construct the list of available providers
+# Format: {"Display Name": "Internal Name/Identifier"}
+# Fixed standard providers
+providers_map = {}
+
+# Only add Gemini/OpenAI if keys are present (or allow selection to show "Configure in Settings")
+# Actually, better to always show them but they might fail if no key.
+providers_map["Gemini"] = "Gemini"
+providers_map["OpenAI"] = "OpenAI"
+
+# Add Custom Providers
+for p in config.get("custom_providers", []):
+    providers_map[p["name"]] = p["name"]
+
+# Initialize Session State
+if "messages" not in st.session_state:
+    st.session_state.messages = {
+        "col1": [],
+        "col2": [],
+        "col3": []
+    }
+
+if "column_configs" not in st.session_state:
+    st.session_state.column_configs = {
+        "col1": {"provider": "Gemini", "model": None},
+        "col2": {"provider": "OpenAI", "model": None},
+        "col3": {"provider": "OpenAI", "model": None} # Defaulting 3rd to OpenAI instead of Groq
+    }
+
+# --- Helper to get models for a provider ---
+@st.cache_data(ttl=60) # Cache for a minute to avoid constant fetching
+def fetch_models_cached(provider_name):
+    p_config = get_provider_config(provider_name, config)
+    # Since get_available_models is async, we need to run it in a loop
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        models = loop.run_until_complete(get_available_models(p_config))
+        loop.close()
+        return models
+    except Exception as e:
+        return []
+
+# --- Layout ---
 col1, col2, col3 = st.columns(3)
+cols = [col1, col2, col3]
+col_ids = ["col1", "col2", "col3"]
 
-# Left pane (Gemini)
-with col1:
-    st.subheader("Gemini")
-    gemini_model = st.selectbox(
-        "Select Gemini Model",
-        GEMINI_MODELS,
-        key="gemini_model"
-    )
-    
-    with st.container(height=500, border=True):
-        for msg in st.session_state.messages["gemini"]:
-            if msg["role"] == "user":
-                st.info(f"You: {msg['content']}")
-            else:
-                st.success(f"Gemini: {msg['content']}")
+# Render Columns
+active_configs = [] # To store (provider_config, model, col_id) for execution
 
-# Middle pane (OpenAI)
-with col2:
-    st.subheader("OpenAI")
-    openai_model = st.selectbox(
-        "Select OpenAI Model",
-        OPENAI_MODELS,
-        key="openai_model"
-    )
-    
-    with st.container(height=500, border=True):
-        for msg in st.session_state.messages["openai"]:
-            if msg["role"] == "user":
-                st.info(f"You: {msg['content']}")
-            else:
-                st.success(f"OpenAI: {msg['content']}")
+for i, col in enumerate(cols):
+    col_id = col_ids[i]
+    with col:
+        st.subheader(f"Agent {i+1}")
 
-# Right pane (Groq)
-with col3:
-    st.subheader("Groq")
-    groq_model = st.selectbox(
-        "Select Groq Model",
-        GROQ_MODELS,
-        key="groq_model"
-    )
-    
-    with st.container(height=500, border=True):
-        for msg in st.session_state.messages["groq"]:
-            if msg["role"] == "user":
-                st.info(f"You: {msg['content']}")
-            else:
-                st.success(f"Groq: {msg['content']}")
+        # Provider Selection
+        current_provider = st.session_state.column_configs[col_id]["provider"]
+        # Ensure current provider is still valid (e.g. if custom provider was deleted)
+        if current_provider not in providers_map:
+            current_provider = "OpenAI" # Fallback
 
-# Input area
-col4, col5 = st.columns([6, 1])
-with col4:
-    if "input_value" not in st.session_state:
-        st.session_state.input_value = ""
-    
-    def submit():
-        if st.session_state.user_input:
-            st.session_state.input_value = st.session_state.user_input
-            st.session_state.user_input = ""
-    
-    user_input = st.text_input(
-        "Message",
-        key="user_input",
-        label_visibility="collapsed",
-        on_change=submit
-    )
+        selected_provider = st.selectbox(
+            "Provider",
+            options=list(providers_map.keys()),
+            index=list(providers_map.keys()).index(current_provider) if current_provider in providers_map else 0,
+            key=f"provider_{col_id}"
+        )
 
-with col5:
+        # Update session state if changed
+        if selected_provider != st.session_state.column_configs[col_id]["provider"]:
+             st.session_state.column_configs[col_id]["provider"] = selected_provider
+             # Reset model when provider changes
+             st.session_state.column_configs[col_id]["model"] = None
+             # We might want to rerun to fetch models immediately?
+             # Streamlit reruns on widget change, so next pass handles it.
+
+        # Model Selection
+        available_models = fetch_models_cached(selected_provider)
+
+        current_model = st.session_state.column_configs[col_id]["model"]
+        if not available_models:
+            st.warning("No models found. Check Settings.")
+            selected_model = None
+        else:
+            index = 0
+            if current_model in available_models:
+                index = available_models.index(current_model)
+
+            selected_model = st.selectbox(
+                "Model",
+                available_models,
+                index=index,
+                key=f"model_{col_id}"
+            )
+
+        st.session_state.column_configs[col_id]["model"] = selected_model
+
+        # Store for execution
+        active_configs.append({
+            "col_id": col_id,
+            "provider_name": selected_provider,
+            "model": selected_model
+        })
+
+        # Chat History
+        with st.container(height=500, border=True):
+            for msg in st.session_state.messages[col_id]:
+                if msg["role"] == "user":
+                    st.info(f"You: {msg['content']}")
+                else:
+                    st.success(f"{selected_provider}: {msg['content']}")
+
+# --- Input Area ---
+input_col, clear_col = st.columns([6, 1])
+
+# We use session state to clear the input after submission
+if "input_text" not in st.session_state:
+    st.session_state.input_text = ""
+
+def submit_input():
+    st.session_state.input_text = st.session_state.widget_input
+    st.session_state.widget_input = "" # Clear the widget
+
+with input_col:
+    st.text_input("Message", key="widget_input", on_change=submit_input, label_visibility="collapsed")
+
+with clear_col:
     if st.button("Clear"):
-        st.session_state.messages = {"gemini": [], "openai": [], "groq": []}
-        st.session_state.current_input = None
-        st.session_state.input_value = ""
+        for cid in col_ids:
+            st.session_state.messages[cid] = []
         st.rerun()
 
-# Handle user input
-if st.session_state.input_value and st.session_state.input_value != st.session_state.current_input:
-    current_input = st.session_state.input_value
-    st.session_state.current_input = current_input
-    st.session_state.input_value = ""
+# --- Execution Logic ---
+if st.session_state.input_text:
+    user_input = st.session_state.input_text
+    st.session_state.input_text = "" # Clear processed input to prevent loop
     
-    # Add user message to all conversations
-    for model in ["gemini", "openai", "groq"]:
-        st.session_state.messages[model].append({
-            "role": "user",
-            "content": current_input
-        })
+    # Add user message to all columns
+    for cid in col_ids:
+        st.session_state.messages[cid].append({"role": "user", "content": user_input})
     
-    # Run async requests in parallel
-    with st.spinner("Fetching responses from all models..."):
+    async def run_all_chats():
+        tasks = []
+        for cfg in active_configs:
+            col_id = cfg["col_id"]
+            prov_name = cfg["provider_name"]
+            model = cfg["model"]
+
+            if not model:
+                tasks.append(asyncio.create_task(asyncio.sleep(0, result="Please select a model.")))
+                continue
+
+            prov_config = get_provider_config(prov_name, config)
+            # Pass full history
+            history = st.session_state.messages[col_id]
+
+            tasks.append(
+                get_response(prov_config, model, history)
+            )
+
+        return await asyncio.gather(*tasks)
+
+    with st.spinner("Fetching responses..."):
         try:
-            gemini_res, openai_res, groq_res = asyncio.run(get_all_responses(
-                gemini_model, openai_model, groq_model, current_input
-            ))
+            # Create a new event loop for async execution within this sync context
+            results = asyncio.run(run_all_chats())
 
-            st.session_state.messages["gemini"].append({
-                "role": "assistant",
-                "content": gemini_res
-            })
-
-            st.session_state.messages["openai"].append({
-                "role": "assistant",
-                "content": openai_res
-            })
-
-            st.session_state.messages["groq"].append({
-                "role": "assistant",
-                "content": groq_res
-            })
+            for i, res in enumerate(results):
+                col_id = col_ids[i]
+                st.session_state.messages[col_id].append({
+                    "role": "assistant",
+                    "content": str(res) # Ensure string
+                })
 
         except Exception as e:
-            st.error(f"An error occurred: {str(e)}")
-    
+            st.error(f"An error occurred: {e}")
+
     st.rerun()
